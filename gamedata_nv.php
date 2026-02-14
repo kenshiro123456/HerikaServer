@@ -182,7 +182,7 @@ function handleLocationEvent(array $data): void {
     // Format: (Context location: <cell> ,Hold: <worldspace>, buildings to go:,, Current Date in Skyrim World: ...)
     $locationString = "(Context location: {$skyrimData['cell']} ,Hold: {$skyrimData['worldspace']}, buildings to go:,, Current Date in Skyrim World: " . convert_gamets2skyrim_date($skyrimData['ts']) . ")";
     
-    $GLOBALS["db"]->insert(
+    $result = $GLOBALS["db"]->insert(
         'eventlog',
         array(
             'ts' => $skyrimData['ts'],
@@ -196,6 +196,10 @@ function handleLocationEvent(array $data): void {
             'party' => ''
         )
     );
+    
+    if (!$result) {
+        Logger::error("[gamedata_nv.php] Location insert FAILED");
+    }
     
     Logger::debug("[gamedata_nv.php] Processed location event: {$data['cell']}");
 }
@@ -252,7 +256,9 @@ function handleUserInputEvent(array $data): void {
         $locationString = "(Context location: {$cell} ,Hold: {$worldspace}, buildings to go:,, Current Date in Skyrim World: " . convert_gamets2skyrim_date($unixTs) . ")";
     }
     
-    $GLOBALS["db"]->insert(
+    Logger::debug("[gamedata_nv.php] About to insert user_input - data: {$dataString}, location: {$locationString}");
+    
+    $result = $GLOBALS["db"]->insert(
         'eventlog',
         array(
             'ts' => $unixTs,
@@ -267,7 +273,12 @@ function handleUserInputEvent(array $data): void {
         )
     );
     
-    Logger::debug("[gamedata_nv.php] Inserted user_input into eventlog");
+    if ($result) {
+        Logger::debug("[gamedata_nv.php] Inserted user_input into eventlog - SUCCESS");
+    } else {
+        Logger::error("[gamedata_nv.php] Inserted user_input into eventlog - FAILED");
+    }
+    
     Logger::debug("[gamedata_nv.php] Processed user input event");
 }
 
