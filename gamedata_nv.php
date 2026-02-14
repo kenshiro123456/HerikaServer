@@ -267,6 +267,7 @@ function handleUserInputEvent(array $data): void {
         )
     );
     
+    Logger::debug("[gamedata_nv.php] Inserted user_input into eventlog");
     Logger::debug("[gamedata_nv.php] Processed user input event");
 }
 

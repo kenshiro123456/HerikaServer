@@ -123,7 +123,15 @@ class sql_nv
     
     public function insert($table, $data)
     {
-        return $this->sql->insert($table, $data);
+        Logger::debug("[sql_nv] insert() called for table: $table");
+        try {
+            $result = $this->sql->insert($table, $data);
+            Logger::debug("[sql_nv] insert() result: " . ($result ? "success" : "failed"));
+            return $result;
+        } catch (Exception $e) {
+            Logger::error("[sql_nv] insert() exception: " . $e->getMessage());
+            throw $e;
+        }
     }
     
     public function execQuery($sql)
