@@ -15,6 +15,7 @@ require_once(__DIR__ . "/conf/conf.php");
 require_once(__DIR__ . "/lib/{$GLOBALS["DBDRIVER"]}.class.php");
 $GLOBALS["db"] = new sql();
 require_once(__DIR__ . "/lib/logger.php");
+require_once(__DIR__ . "/lib/utils_game_timestamp.php");
 
 // Only accept POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -147,8 +148,27 @@ function handleLocationEvent(array $data): void {
     // Log received event with type and actor_name
     Logger::debug("[gamedata_nv.php] Received event - Type: location, Actor: {$skyrimData['actor_name']}");
     
-    // Store location data
+    // Store location data in core_player table
     storeLocationData($skyrimData);
+    
+    // Also store in eventlog table so DataLastKnownLocation() can find it
+    // Format: (Context location: <cell> ,Hold: <worldspace>, buildings to go:,, Current Date in Skyrim World: ...)
+    $locationString = "(Context location: {$skyrimData['cell']} ,Hold: {$skyrimData['worldspace']}, buildings to go:,, Current Date in Skyrim World: " . convert_gamets2skyrim_date($skyrimData['ts']) . ")";
+    
+    $GLOBALS["db"]->insert(
+        'eventlog',
+        array(
+            'ts' => $skyrimData['ts'],
+            'gamets' => $skyrimData['ts'],
+            'type' => 'location',
+            'data' => $locationString,
+            'sess' => 'pending',
+            'localts' => time(),
+            'people' => '',
+            'location' => $locationString,
+            'party' => ''
+        )
+    );
     
     Logger::debug("[gamedata_nv.php] Processed location event: {$data['cell']}");
 }
