@@ -10,7 +10,7 @@
  */
 
 error_reporting(E_ALL);
-ini_set('display_errors', '0'); // Don't output errors to response body
+ini_set('display_errors', '1'); // Enable error display for debugging
 require_once(__DIR__ . "/conf/conf.php");
 require_once(__DIR__ . "/lib/postgresql_nv.class.php");
 $GLOBALS["db"] = new sql_nv();
