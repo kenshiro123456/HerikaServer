@@ -118,16 +118,67 @@ class sql_nv
     }
     
     /**
+     * Execute a SQL query (alias for execQuery)
+     * @param string $sql SQL query
+     * @return resource|false Query result
+     */
+    public function query($sql)
+    {
+        return $this->execQuery($sql);
+    }
+    
+    /**
      * Fetch all rows from a query result
-     * @param resource $result Query result
+     * @param resource|string $result Query result or SQL string
      * @return array Array of rows
      */
     public function fetchAll($result)
     {
+        // If $result is a string, execute it as a query first
+        if (is_string($result)) {
+            $result = $this->execQuery($result);
+        }
+        
         if (!$result) {
             return [];
         }
         
-        return pg_fetch_all($result);
+        $rows = pg_fetch_all($result);
+        return $rows === false ? [] : $rows;
+    }
+    
+    /**
+     * Fetch one row from a query result
+     * @param resource|string $result Query result or SQL string
+     * @return array|null Single row or null
+     */
+    public function fetchOne($result)
+    {
+        // If $result is a string, execute it as a query first
+        if (is_string($result)) {
+            $result = $this->execQuery($result);
+        }
+        
+        if (!$result) {
+            return null;
+        }
+        
+        $row = pg_fetch_assoc($result);
+        return $row === false ? null : $row;
+    }
+    
+    /**
+     * Escape a string for SQL
+     * @param string $value Value to escape
+     * @return string Escaped value
+     */
+    public function escape($value)
+    {
+        if (!self::$link) {
+            Logger::error("SQL_NV: No database connection for escape");
+            return addslashes($value);
+        }
+        
+        return pg_escape_string(self::$link, $value);
     }
 }

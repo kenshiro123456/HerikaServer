@@ -148,8 +148,14 @@ function handleLocationEvent(array $data): void {
     // Log received event with type and actor_name
     Logger::debug("[gamedata_nv.php] Received event - Type: location, Actor: {$skyrimData['actor_name']}");
     
+    // Debug: Check database class before storeLocationData
+    Logger::debug("[gamedata_nv.php] DB class before storeLocationData: " . get_class($GLOBALS["db"]));
+    
     // Store location data in core_player table
     storeLocationData($skyrimData);
+    
+    // Debug: Check database class after storeLocationData
+    Logger::debug("[gamedata_nv.php] DB class after storeLocationData: " . get_class($GLOBALS["db"]));
     
     // Also store in eventlog table so DataLastKnownLocation() can find it
     // Format: (Context location: <cell> ,Hold: <worldspace>, buildings to go:,, Current Date in Skyrim World: ...)
