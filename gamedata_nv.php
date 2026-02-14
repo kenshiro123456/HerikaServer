@@ -76,7 +76,7 @@ try {
 
 /**
  * Handle subtitle event from New Vegas
- * Translates to Skyrim format and forwards to main.php
+ * Translates to Skyrim format and stores in dwemer_nv database
  */
 function handleSubtitleEvent(array $data): void {
     // Validate required fields
@@ -108,8 +108,29 @@ function handleSubtitleEvent(array $data): void {
     // Log received event with type and actor_name
     Logger::debug("[gamedata_nv.php] Received event - Type: subtitle, Actor: {$skyrimData['actor_name']}");
     
-    // Forward to main.php
-    forwardToMainEndpoint($skyrimData);
+    // Store directly in dwemer_nv database instead of forwarding to main.php
+    // This avoids main.php overwriting $GLOBALS["db"] with dwemer connection
+    $actorName = $skyrimData['actor_name'];
+    $text = $skyrimData['dialogue_text'];
+    $unixTs = $skyrimData['ts'];
+    
+    // Format: "actor_name: text"
+    $dataString = "{$actorName}: {$text}";
+    
+    $GLOBALS["db"]->insert(
+        'eventlog',
+        array(
+            'ts' => $unixTs,
+            'gamets' => $unixTs,
+            'type' => 'inputtext',
+            'data' => $dataString,
+            'sess' => 'pending',
+            'localts' => time(),
+            'people' => $actorName,
+            'location' => '',
+            'party' => ''
+        )
+    );
     
     Logger::debug("[gamedata_nv.php] Processed subtitle event from: {$data['speaker_name']}");
 }
@@ -181,7 +202,7 @@ function handleLocationEvent(array $data): void {
 
 /**
  * Handle user input event from New Vegas
- * Translates to Skyrim format and forwards to main.php
+ * Translates to Skyrim format and stores in dwemer_nv database
  */
 function handleUserInputEvent(array $data): void {
     // Validate required fields
@@ -213,8 +234,38 @@ function handleUserInputEvent(array $data): void {
     // Log received event with type and actor_name
     Logger::debug("[gamedata_nv.php] Received event - Type: user_input, Actor: {$skyrimData['actor_name']}");
     
-    // Forward to main.php
-    forwardToMainEndpoint($skyrimData);
+    // Store directly in dwemer_nv database instead of forwarding to main.php
+    // This avoids main.php overwriting $GLOBALS["db"] with dwemer connection
+    $actorName = $skyrimData['actor_name'];
+    $text = $skyrimData['input_text'];
+    $unixTs = $skyrimData['ts'];
+    
+    // Format: "actor_name: text"
+    $dataString = "{$actorName}: {$text}";
+    
+    // Get location string if available
+    $locationString = '';
+    if (isset($skyrimData['location'])) {
+        $loc = $skyrimData['location'];
+        $cell = $loc['cell'] ?? '';
+        $worldspace = $loc['worldspace'] ?? '';
+        $locationString = "(Context location: {$cell} ,Hold: {$worldspace}, buildings to go:,, Current Date in Skyrim World: " . convert_gamets2skyrim_date($unixTs) . ")";
+    }
+    
+    $GLOBALS["db"]->insert(
+        'eventlog',
+        array(
+            'ts' => $unixTs,
+            'gamets' => $unixTs,
+            'type' => 'inputtext',
+            'data' => $dataString,
+            'sess' => 'pending',
+            'localts' => time(),
+            'people' => $actorName,
+            'location' => $locationString,
+            'party' => ''
+        )
+    );
     
     Logger::debug("[gamedata_nv.php] Processed user input event");
 }
