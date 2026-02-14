@@ -326,13 +326,14 @@ function convertTimestamp(string $nvTimestamp): int {
  */
 function forwardToMainEndpoint(array $skyrimData): void {
     // Format the data string for main.php
-    // Format: "inputtext|<unix_ts>|<game_ts>|<actor_name>: <text>"
+    // Format: "inputtext|<unix_ts>|<unix_ts>|<actor_name>: <text>"
+    // Note: main.php expects both ts and gamets as Unix timestamps (integers)
     $actorName = $skyrimData['actor_name'] ?? 'Unknown';
     $text = $skyrimData['dialogue_text'] ?? $skyrimData['input_text'] ?? '';
     $unixTs = $skyrimData['ts'] ?? time();
-    $gameTs = $skyrimData['game_ts'] ?? '';
     
-    $dataString = "inputtext|{$unixTs}|{$gameTs}|{$actorName}: {$text}";
+    // Use Unix timestamp for both ts and gamets (main.php expects integers)
+    $dataString = "inputtext|{$unixTs}|{$unixTs}|{$actorName}: {$text}";
     
     // Base64 encode the data string
     $encodedData = base64_encode($dataString);
