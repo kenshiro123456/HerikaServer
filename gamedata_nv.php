@@ -204,7 +204,7 @@ function translateSubtitle(array $nvData): array {
     if (empty($nvData['text'])) {
         throw new Exception('text');
     }
-    if (empty($nvData['timestamp'])) {
+    if (!isset($nvData['timestamp'])) {
         throw new Exception('timestamp');
     }
     
@@ -234,7 +234,7 @@ function translateLocation(array $nvData): array {
     if (empty($nvData['cell'])) {
         throw new Exception('cell');
     }
-    if (empty($nvData['timestamp'])) {
+    if (!isset($nvData['timestamp'])) {
         throw new Exception('timestamp');
     }
     
@@ -267,7 +267,7 @@ function translateUserInput(array $nvData): array {
     if (empty($nvData['input'])) {
         throw new Exception('input');
     }
-    if (empty($nvData['timestamp'])) {
+    if (!isset($nvData['timestamp'])) {
         throw new Exception('timestamp');
     }
     
@@ -299,11 +299,21 @@ function translateUserInput(array $nvData): array {
 
 /**
  * Convert New Vegas timestamp to Unix timestamp
- * Input format: "YYYY-MM-DD HH:MM:SS.mmm"
- * Output: Unix timestamp (seconds since epoch)
+ * Input: Unix timestamp (integer)
+ * Output: Unix timestamp (integer) - passthrough
  */
-function convertTimestamp(string $nvTimestamp): int {
-    // Parse the timestamp
+function convertTimestamp($nvTimestamp): int {
+    // If already an integer (Unix timestamp), return as-is
+    if (is_int($nvTimestamp)) {
+        return $nvTimestamp;
+    }
+    
+    // If it's a numeric string, convert to integer
+    if (is_numeric($nvTimestamp)) {
+        return intval($nvTimestamp);
+    }
+    
+    // Fallback: try to parse as datetime string (for backward compatibility)
     $dt = DateTime::createFromFormat('Y-m-d H:i:s.u', $nvTimestamp);
     
     if ($dt === false) {
