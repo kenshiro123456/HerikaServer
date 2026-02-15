@@ -263,11 +263,9 @@ function handleUserInputEvent(array $data): void {
     
     // Store directly in dwemer_nv database instead of forwarding to main.php
     // This avoids main.php overwriting $GLOBALS["db"] with dwemer connection
+    $actorName = $skyrimData['actor_name'];
+    $text = $skyrimData['input_text'];
     $unixTs = $skyrimData['ts'];
-    
-    // For user_input events, data should just be "inputtext" (Skyrim format)
-    // The actual input text is not stored in the data column
-    $dataString = "inputtext";
     
     // Get location string if available
     $locationString = '';
@@ -278,15 +276,16 @@ function handleUserInputEvent(array $data): void {
         $locationString = "(Context location: {$cell} ,Hold: {$worldspace}, buildings to go:,, Current Date in Skyrim World: " . convert_gamets2skyrim_date($unixTs) . ")";
     }
     
+    // First, insert user_input event (data should just be "inputtext")
     Logger::debug("[gamedata_nv.php] About to insert user_input - location: {$locationString}");
     
-    $result = $GLOBALS["db"]->insert(
+    $result1 = $GLOBALS["db"]->insert(
         'eventlog',
         array(
             'ts' => $unixTs,
             'gamets' => $unixTs,
             'type' => 'user_input',
-            'data' => $dataString,
+            'data' => 'inputtext',
             'sess' => 'pending',
             'localts' => time(),
             'people' => '',
@@ -295,19 +294,57 @@ function handleUserInputEvent(array $data): void {
         )
     );
     
-    if ($result) {
+    if ($result1) {
         Logger::debug("[gamedata_nv.php] Inserted user_input into eventlog - SUCCESS");
-        
-        // Verify the insert by querying back
-        $verifyQuery = "SELECT COUNT(*) as count FROM eventlog WHERE ts = {$unixTs} AND type = 'user_input'";
-        $verifyResult = $GLOBALS["db"]->fetchOne($verifyQuery);
-        if ($verifyResult) {
-            Logger::debug("[gamedata_nv.php] Verification query result: " . json_encode($verifyResult));
-        } else {
-            Logger::error("[gamedata_nv.php] Verification query FAILED - data not found after insert!");
-        }
     } else {
         Logger::error("[gamedata_nv.php] Inserted user_input into eventlog - FAILED");
+    }
+    
+    // Second, insert inputtext event with the actual text (Skyrim format)
+    // Format: "actor_name: text (Talking to target_name)" or "(Talking to everyone)"
+    $dataString = "{$actorName}: {$text}";
+    
+    // Add target information if available
+    if (isset($skyrimData['target']) && !empty($skyrimData['target']['name'])) {
+        $dataString .= " (Talking to {$skyrimData['target']['name']})";
+    } else {
+        $dataString .= " (Talking to everyone)";
+    }
+    
+    Logger::debug("[gamedata_nv.php] About to insert inputtext - data: {$dataString}");
+    
+    $result2 = $GLOBALS["db"]->insert(
+        'eventlog',
+        array(
+            'ts' => $unixTs,
+            'gamets' => $unixTs,
+            'type' => 'inputtext',
+            'data' => $dataString,
+            'sess' => 'pending',
+            'localts' => time(),
+            'people' => $actorName,
+            'location' => $locationString,
+            'party' => ''
+        )
+    );
+    
+    if ($result2) {
+        Logger::debug("[gamedata_nv.php] Inserted inputtext into eventlog - SUCCESS");
+        
+        // Verify both inserts
+        $verifyQuery1 = "SELECT COUNT(*) as count FROM eventlog WHERE ts = {$unixTs} AND type = 'user_input'";
+        $verifyResult1 = $GLOBALS["db"]->fetchOne($verifyQuery1);
+        if ($verifyResult1) {
+            Logger::debug("[gamedata_nv.php] user_input verification: " . json_encode($verifyResult1));
+        }
+        
+        $verifyQuery2 = "SELECT COUNT(*) as count FROM eventlog WHERE ts = {$unixTs} AND type = 'inputtext' AND people = '" . $GLOBALS["db"]->escape($actorName) . "'";
+        $verifyResult2 = $GLOBALS["db"]->fetchOne($verifyQuery2);
+        if ($verifyResult2) {
+            Logger::debug("[gamedata_nv.php] inputtext verification: " . json_encode($verifyResult2));
+        }
+    } else {
+        Logger::error("[gamedata_nv.php] Inserted inputtext into eventlog - FAILED");
     }
     
     Logger::debug("[gamedata_nv.php] Processed user input event");
