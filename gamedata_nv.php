@@ -114,8 +114,14 @@ function handleSubtitleEvent(array $data): void {
     $text = $skyrimData['dialogue_text'];
     $unixTs = $skyrimData['ts'];
     
-    // Format: "actor_name: text"
+    // Format: "actor_name: text (Talking to target_name)" (Skyrim format)
+    // If no target, use "everyone"
     $dataString = "{$actorName}: {$text}";
+    if (!empty($skyrimData['target_name'])) {
+        $dataString .= " (Talking to {$skyrimData['target_name']})";
+    } else {
+        $dataString .= " (Talking to everyone)";
+    }
     
     $GLOBALS["db"]->insert(
         'eventlog',
@@ -303,6 +309,7 @@ function translateSubtitle(array $nvData): array {
     return [
         'actor_name' => $nvData['speaker_name'],
         'dialogue_text' => $nvData['text'],
+        'target_name' => isset($nvData['target_name']) ? $nvData['target_name'] : '',
         'refid' => isset($nvData['speaker_refid']) ? $nvData['speaker_refid'] : '',
         'baseid' => isset($nvData['speaker_baseid']) ? $nvData['speaker_baseid'] : '',
         'location' => isset($nvData['cell']) ? $nvData['cell'] : '',
