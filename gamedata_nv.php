@@ -11,9 +11,13 @@
 
 error_reporting(E_ALL);
 ini_set('display_errors', '1'); // Enable error display for debugging
+
+// Set game mode to New Vegas
+$GLOBALS['GAME_MODE'] = 'nv';
+
 require_once(__DIR__ . "/conf/conf.php");
-require_once(__DIR__ . "/lib/postgresql_nv.class.php");
-$GLOBALS["db"] = new sql_nv();
+require_once(__DIR__ . "/lib/postgresql.class.php");
+$GLOBALS["db"] = new sql();
 require_once(__DIR__ . "/lib/logger.php");
 require_once(__DIR__ . "/lib/utils_game_timestamp.php");
 
