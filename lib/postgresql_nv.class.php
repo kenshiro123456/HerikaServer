@@ -33,7 +33,14 @@ class sql_nv
             // Ensure consistent schema resolution across sessions
             pg_query(self::$link, "SET search_path TO public");
             
-            Logger::debug("SQL_NV: connected to " . pg_host(self::$link) . "/" . pg_dbname(self::$link));
+            $dbname = pg_dbname(self::$link);
+            $host = pg_host(self::$link);
+            Logger::debug("SQL_NV: connected to $host/$dbname");
+            
+            // Verify we're actually connected to dwemer_nv
+            if ($dbname !== 'dwemer_nv') {
+                Logger::error("SQL_NV: WARNING - Connected to wrong database: $dbname (expected: dwemer_nv)");
+            }
         }
     }
     
@@ -62,6 +69,9 @@ class sql_nv
         $columns = array_keys($data);
         $values = array_values($data);
         
+        Logger::debug("SQL_NV: insert() - table: $table, columns: " . implode(', ', $columns));
+        Logger::debug("SQL_NV: insert() - values: " . json_encode($values, JSON_UNESCAPED_UNICODE));
+        
         // Escape column names
         $escapedColumns = array_map(function($col) {
             return pg_escape_identifier(self::$link, $col);
@@ -85,7 +95,17 @@ class sql_nv
         $result = pg_query_params(self::$link, $sql, $values);
         
         if (!$result) {
-            Logger::error("SQL_NV: Insert failed - " . pg_last_error(self::$link));
+            $error = pg_last_error(self::$link);
+            Logger::error("SQL_NV: Insert failed - " . $error);
+            return false;
+        }
+        
+        $affectedRows = pg_affected_rows($result);
+        Logger::debug("SQL_NV: Insert succeeded - affected rows: $affectedRows");
+        
+        // Verify the insert by checking if rows were affected
+        if ($affectedRows === 0) {
+            Logger::warn("SQL_NV: Insert returned success but 0 rows affected!");
             return false;
         }
         
