@@ -131,7 +131,7 @@ function handleSubtitleEvent(array $data): void {
         array(
             'ts' => $unixTs,
             'gamets' => $unixTs,
-            'type' => 'inputtext',
+            'type' => 'chat',
             'data' => $dataString,
             'sess' => 'pending',
             'localts' => time(),
@@ -142,7 +142,7 @@ function handleSubtitleEvent(array $data): void {
     );
     
     // Verify the insert
-    $verifyQuery = "SELECT COUNT(*) as count FROM eventlog WHERE ts = {$unixTs} AND type = 'inputtext' AND people = '" . $GLOBALS["db"]->escape($actorName) . "'";
+    $verifyQuery = "SELECT COUNT(*) as count FROM eventlog WHERE ts = {$unixTs} AND type = 'chat' AND people = '" . $GLOBALS["db"]->escape($actorName) . "'";
     $verifyResult = $GLOBALS["db"]->fetchOne($verifyQuery);
     if ($verifyResult) {
         Logger::debug("[gamedata_nv.php] Subtitle verification: " . json_encode($verifyResult));
