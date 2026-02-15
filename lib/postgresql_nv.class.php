@@ -41,6 +41,13 @@ class sql_nv
             if ($dbname !== 'dwemer_nv') {
                 Logger::error("SQL_NV: WARNING - Connected to wrong database: $dbname (expected: dwemer_nv)");
             }
+            
+            // Verify connection is in autocommit mode (PostgreSQL default)
+            $autocommit_status = pg_query(self::$link, "SHOW autocommit");
+            if ($autocommit_status) {
+                $row = pg_fetch_assoc($autocommit_status);
+                Logger::debug("SQL_NV: autocommit status: " . ($row['autocommit'] ?? 'unknown'));
+            }
         }
     }
     

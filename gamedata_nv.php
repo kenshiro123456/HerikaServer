@@ -95,6 +95,9 @@ function handleSubtitleEvent(array $data): void {
         exit;
     }
     
+    // Debug: Log raw subtitle data
+    Logger::debug("[gamedata_nv.php] Raw subtitle data: " . json_encode($data, JSON_UNESCAPED_UNICODE));
+    
     // Translate to Skyrim format
     try {
         $skyrimData = translateSubtitle($data);
@@ -106,7 +109,7 @@ function handleSubtitleEvent(array $data): void {
     }
     
     // Log received event with type and actor_name
-    Logger::debug("[gamedata_nv.php] Received event - Type: subtitle, Actor: {$skyrimData['actor_name']}");
+    Logger::debug("[gamedata_nv.php] Received event - Type: subtitle, Actor: {$skyrimData['actor_name']}, Target: " . ($skyrimData['target_name'] ?? 'none'));
     
     // Store directly in dwemer_nv database instead of forwarding to main.php
     // This avoids main.php overwriting $GLOBALS["db"] with dwemer connection
@@ -137,6 +140,13 @@ function handleSubtitleEvent(array $data): void {
             'party' => ''
         )
     );
+    
+    // Verify the insert
+    $verifyQuery = "SELECT COUNT(*) as count FROM eventlog WHERE ts = {$unixTs} AND type = 'inputtext' AND people = '" . $GLOBALS["db"]->escape($actorName) . "'";
+    $verifyResult = $GLOBALS["db"]->fetchOne($verifyQuery);
+    if ($verifyResult) {
+        Logger::debug("[gamedata_nv.php] Subtitle verification: " . json_encode($verifyResult));
+    }
     
     Logger::debug("[gamedata_nv.php] Processed subtitle event from: {$data['speaker_name']}");
 }
@@ -205,6 +215,13 @@ function handleLocationEvent(array $data): void {
     
     if (!$result) {
         Logger::error("[gamedata_nv.php] Location insert FAILED");
+    } else {
+        // Verify the insert
+        $verifyQuery = "SELECT COUNT(*) as count FROM eventlog WHERE ts = {$skyrimData['ts']} AND type = 'location'";
+        $verifyResult = $GLOBALS["db"]->fetchOne($verifyQuery);
+        if ($verifyResult) {
+            Logger::debug("[gamedata_nv.php] Location verification: " . json_encode($verifyResult));
+        }
     }
     
     Logger::debug("[gamedata_nv.php] Processed location event: {$data['cell']}");
@@ -246,12 +263,11 @@ function handleUserInputEvent(array $data): void {
     
     // Store directly in dwemer_nv database instead of forwarding to main.php
     // This avoids main.php overwriting $GLOBALS["db"] with dwemer connection
-    $actorName = $skyrimData['actor_name'];
-    $text = $skyrimData['input_text'];
     $unixTs = $skyrimData['ts'];
     
-    // Format: "actor_name: text"
-    $dataString = "{$actorName}: {$text}";
+    // For user_input events, data should just be "inputtext" (Skyrim format)
+    // The actual input text is not stored in the data column
+    $dataString = "inputtext";
     
     // Get location string if available
     $locationString = '';
@@ -262,18 +278,18 @@ function handleUserInputEvent(array $data): void {
         $locationString = "(Context location: {$cell} ,Hold: {$worldspace}, buildings to go:,, Current Date in Skyrim World: " . convert_gamets2skyrim_date($unixTs) . ")";
     }
     
-    Logger::debug("[gamedata_nv.php] About to insert user_input - data: {$dataString}, location: {$locationString}");
+    Logger::debug("[gamedata_nv.php] About to insert user_input - location: {$locationString}");
     
     $result = $GLOBALS["db"]->insert(
         'eventlog',
         array(
             'ts' => $unixTs,
             'gamets' => $unixTs,
-            'type' => 'inputtext',
+            'type' => 'user_input',
             'data' => $dataString,
             'sess' => 'pending',
             'localts' => time(),
-            'people' => $actorName,
+            'people' => '',
             'location' => $locationString,
             'party' => ''
         )
@@ -281,6 +297,15 @@ function handleUserInputEvent(array $data): void {
     
     if ($result) {
         Logger::debug("[gamedata_nv.php] Inserted user_input into eventlog - SUCCESS");
+        
+        // Verify the insert by querying back
+        $verifyQuery = "SELECT COUNT(*) as count FROM eventlog WHERE ts = {$unixTs} AND type = 'user_input'";
+        $verifyResult = $GLOBALS["db"]->fetchOne($verifyQuery);
+        if ($verifyResult) {
+            Logger::debug("[gamedata_nv.php] Verification query result: " . json_encode($verifyResult));
+        } else {
+            Logger::error("[gamedata_nv.php] Verification query FAILED - data not found after insert!");
+        }
     } else {
         Logger::error("[gamedata_nv.php] Inserted user_input into eventlog - FAILED");
     }
