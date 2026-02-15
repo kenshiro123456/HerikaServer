@@ -51,8 +51,8 @@ Logger::debug("[gamedata_nv.php] Received event type: {$data['type']}");
 
 try {
     switch ($data['type']) {
-        case 'subtitle':
-            handleSubtitleEvent($data);
+        case 'chat':
+            handleChatEvent($data);
             break;
         case 'location':
             handleLocationEvent($data);
@@ -75,10 +75,10 @@ try {
 }
 
 /**
- * Handle subtitle event from New Vegas
+ * Handle chat event from New Vegas
  * Translates to Skyrim format and stores in dwemer_nv database
  */
-function handleSubtitleEvent(array $data): void {
+function handleChatEvent(array $data): void {
     // Validate required fields
     $requiredFields = ['speaker_name', 'text', 'timestamp'];
     $missingFields = [];
@@ -95,21 +95,21 @@ function handleSubtitleEvent(array $data): void {
         exit;
     }
     
-    // Debug: Log raw subtitle data
-    Logger::debug("[gamedata_nv.php] Raw subtitle data: " . json_encode($data, JSON_UNESCAPED_UNICODE));
+    // Debug: Log raw chat data
+    Logger::debug("[gamedata_nv.php] Raw chat data: " . json_encode($data, JSON_UNESCAPED_UNICODE));
     
     // Translate to Skyrim format
     try {
-        $skyrimData = translateSubtitle($data);
+        $skyrimData = translateChat($data);
     } catch (Exception $e) {
         http_response_code(500);
         echo "Internal Server Error: Translation failed";
-        Logger::error("[gamedata_nv.php] Translation error for subtitle event. Field: {$e->getMessage()}. Event type: subtitle");
+        Logger::error("[gamedata_nv.php] Translation error for chat event. Field: {$e->getMessage()}. Event type: chat");
         exit;
     }
     
     // Log received event with type and actor_name
-    Logger::debug("[gamedata_nv.php] Received event - Type: subtitle, Actor: {$skyrimData['actor_name']}, Target: " . ($skyrimData['target_name'] ?? 'none'));
+    Logger::debug("[gamedata_nv.php] Received event - Type: chat, Actor: {$skyrimData['actor_name']}, Target: " . ($skyrimData['target_name'] ?? 'none'));
     
     // Store directly in dwemer_nv database instead of forwarding to main.php
     // This avoids main.php overwriting $GLOBALS["db"] with dwemer connection
@@ -117,14 +117,9 @@ function handleSubtitleEvent(array $data): void {
     $text = $skyrimData['dialogue_text'];
     $unixTs = $skyrimData['ts'];
     
-    // Format: "actor_name: text (Talking to target_name)" (Skyrim format)
-    // If no target, use "everyone"
-    $dataString = "{$actorName}: {$text}";
-    if (!empty($skyrimData['target_name'])) {
-        $dataString .= " (Talking to {$skyrimData['target_name']})";
-    } else {
-        $dataString .= " (Talking to everyone)";
-    }
+    // Format: "actor_name: text (Talking to Player)" (Skyrim format)
+    // Chat events are always directed to the player
+    $dataString = "{$actorName}: {$text} (Talking to Player)";
     
     $GLOBALS["db"]->insert(
         'eventlog',
@@ -145,10 +140,10 @@ function handleSubtitleEvent(array $data): void {
     $verifyQuery = "SELECT COUNT(*) as count FROM eventlog WHERE ts = {$unixTs} AND type = 'chat' AND people = '" . $GLOBALS["db"]->escape($actorName) . "'";
     $verifyResult = $GLOBALS["db"]->fetchOne($verifyQuery);
     if ($verifyResult) {
-        Logger::debug("[gamedata_nv.php] Subtitle verification: " . json_encode($verifyResult));
+        Logger::debug("[gamedata_nv.php] Chat verification: " . json_encode($verifyResult));
     }
     
-    Logger::debug("[gamedata_nv.php] Processed subtitle event from: {$data['speaker_name']}");
+    Logger::debug("[gamedata_nv.php] Processed chat event from: {$data['speaker_name']}");
 }
 
 /**
@@ -351,9 +346,9 @@ function handleUserInputEvent(array $data): void {
 }
 
 /**
- * Translate New Vegas subtitle event to Skyrim format
+ * Translate New Vegas chat event to Skyrim format
  */
-function translateSubtitle(array $nvData): array {
+function translateChat(array $nvData): array {
     // Validate critical fields before translation
     if (empty($nvData['speaker_name'])) {
         throw new Exception('speaker_name');
