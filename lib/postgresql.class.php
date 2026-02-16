@@ -5,26 +5,13 @@ class sql
 {
     private static $link = null;
     private $queryTimeThreshold = 0.5; // Time threshold in seconds
+    private $connString = "host=localhost dbname=dwemer user=dwemer password=dwemer connect_timeout=90"; 
     private $debug_level = 3; // 0 = quiet .. 3=use timer .. 5 = verbose
-    
-    /**
-     * Get connection string based on game mode
-     * @return string Connection string for PostgreSQL
-     */
-    private function getConnString()
-    {
-        $game = $GLOBALS['GAME_MODE'] ?? 'skyrim';
-        if ($game === 'nv') {
-            return "host=localhost dbname=dwemer_nv user=dwemer password=dwemer connect_timeout=90";
-        } else {
-            return "host=localhost dbname=dwemer user=dwemer password=dwemer connect_timeout=90";
-        }
-    }
     
     public function __construct()
     {
-        $connString = $this->getConnString();
-        self::$link = @pg_connect($connString);
+        //$connString = "host=localhost dbname=dwemer user=dwemer password=dwemer connect_timeout=15";
+        self::$link = @pg_connect($this->connString);
 
         if (!self::$link || self::$link === false) {
             Logger::error("SQL: connection init failed. " . $this->extract_caller() );
