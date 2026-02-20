@@ -88,7 +88,7 @@ class AutomaticBackup {
             // Database connection details
             $host = 'localhost';
             $port = '5432';
-            $dbname = 'dwemer';
+            $dbname = 'dwemer_nv';
             $username = 'dwemer';
             $password = 'dwemer';
             

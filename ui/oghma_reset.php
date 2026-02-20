@@ -12,7 +12,7 @@ require_once($rootPath . "lib" . DIRECTORY_SEPARATOR . "logger.php");
 // Database connection details
 $host = 'localhost';
 $port = '5432';
-$dbname = 'dwemer';
+$dbname = 'dwemer_nv';
 $schema = 'public';
 $username = 'dwemer';
 $password = 'dwemer';

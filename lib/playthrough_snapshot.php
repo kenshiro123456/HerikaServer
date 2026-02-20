@@ -64,7 +64,7 @@ function dragon_break_ensure_meta_schema($adminConn) {
 function dragon_break_create_snapshot($name, $notes) {
 	$host = 'localhost';
 	$port = '5432';
-	$dbname = 'dwemer';
+	$dbname = 'dwemer_nv';
 	$username = 'dwemer';
 	$password = 'dwemer';
 	$schema = 'public';

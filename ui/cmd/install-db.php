@@ -5,7 +5,7 @@ $enginePath =__DIR__.DIRECTORY_SEPARATOR."..".DIRECTORY_SEPARATOR."..".DIRECTORY
 // Database connection details
 $host = 'localhost';
 $port = '5432';
-$dbname = 'dwemer';
+$dbname = 'dwemer_nv';
 $schema = 'public';
 $username = 'dwemer';
 $password = 'dwemer';

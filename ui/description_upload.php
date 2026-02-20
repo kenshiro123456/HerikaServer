@@ -16,7 +16,7 @@ ini_set('display_errors', '1');
 // Database connection details
 $host = 'localhost';
 $port = '5432';
-$dbname = 'dwemer';
+$dbname = 'dwemer_nv';
 $schema = 'public';
 $username = 'dwemer';
 $password = 'dwemer';

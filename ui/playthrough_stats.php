@@ -8,7 +8,7 @@ http_response_code(200);
 
 $host = 'localhost';
 $port = '5432';
-$dbname = 'dwemer';
+$dbname = 'dwemer_nv';
 $schema = 'public';
 $username = 'dwemer';
 $password = 'dwemer';

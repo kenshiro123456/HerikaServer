@@ -16,7 +16,7 @@ require_once $enginePath . "lib" . DIRECTORY_SEPARATOR . "utils_game_timestamp.p
 
 $host     = 'localhost';
 $port     = '5432';
-$dbname   = 'dwemer';
+$dbname   = 'dwemer_nv';
 $schema   = 'public';
 $username = 'dwemer';
 $password = 'dwemer';

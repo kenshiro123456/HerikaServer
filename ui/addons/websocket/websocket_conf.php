@@ -2,7 +2,7 @@
 if (isset($_GET['reset_tables'])) {
     $host = 'localhost';
     $port = '5432';
-    $dbname = 'dwemer';
+    $dbname = 'dwemer_nv';
     $username = 'dwemer';
     $password = 'dwemer';
 
@@ -51,7 +51,7 @@ if (isset($_GET['reset_tables'])) {
 if (isset($_GET['check_tables'])) {
     $host = 'localhost';
     $port = '5432';
-    $dbname = 'dwemer';
+    $dbname = 'dwemer_nv';
     $username = 'dwemer';
     $password = 'dwemer';
 
