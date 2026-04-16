@@ -944,9 +944,72 @@ if ($page < 1) $page = 1;
 $q = trim($_GET['q'] ?? '');
 $alpha = strtolower($_GET['alpha'] ?? 'asc');
 if (!in_array($alpha, ['asc','desc'], true)) { $alpha = 'asc'; }
-$nameLetterFilter = strtoupper(trim((string)($_GET['letter'] ?? '')));
-if (!preg_match('/^[A-Z]$/', $nameLetterFilter)) { $nameLetterFilter = ''; }
+$nameLetterFilter = trim((string)($_GET['letter'] ?? ''));
+// Accept A-Z, katakana group keys, or OTHER
+if ($nameLetterFilter !== 'OTHER' && !preg_match('/^[A-Zア-ヲ]$/u', strtoupper($nameLetterFilter))) { $nameLetterFilter = ''; }
 $profileIdFilter = isset($_GET['profile_id']) ? trim((string)$_GET['profile_id']) : '';
+
+// Cached kana mode detection (one query per page load)
+if (!function_exists('isNpcKanaMode')) {
+    function isNpcKanaMode() {
+        static $result = null;
+        if ($result !== null) return $result;
+        try {
+            $row = $GLOBALS['db']->fetchOne("SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE npc_name ~ '^[\\u3040-\\u309F\\u30A0-\\u30FF]') AS ja FROM core_npc_master");
+            $result = (intval($row['total'] ?? 0) > 0 && intval($row['ja'] ?? 0) > 0);
+        } catch (Exception $e) {
+            $result = false;
+        }
+        return $result;
+    }
+}
+
+if (!function_exists('getKanaGroups')) {
+    function getKanaGroups() {
+        return [
+            'ア' => 'あいうえおアイウエオ',
+            'カ' => 'かきくけこがぎぐげごカキクケコガギグゲゴ',
+            'サ' => 'さしすせそざじずぜぞサシスセソザジズゼゾ',
+            'タ' => 'たちつてとだぢづでどタチツテトダヂヅデド',
+            'ナ' => 'なにぬねのナニヌネノ',
+            'ハ' => 'はひふへほばびぶべぼぱぴぷぺぽハヒフヘホバビブベボパピプペポ',
+            'マ' => 'まみむめもマミムメモ',
+            'ヤ' => 'やゆよヤユヨ',
+            'ラ' => 'らりるれろラリルレロ',
+            'ワ' => 'わをんワヲン',
+        ];
+    }
+}
+
+if (!function_exists('buildKanaLetterCondition')) {
+    /**
+     * Build SQL condition for a letter filter.
+     * Handles kana groups, OTHER, and plain A-Z letters.
+     * Returns the condition string (without leading AND/OR).
+     */
+    function buildKanaLetterCondition($letter) {
+        if ($letter === 'OTHER') {
+            if (isNpcKanaMode()) {
+                return "npc_name !~ '^[\\u3040-\\u309F\\u30A0-\\u30FF\\u30FC]'";
+            } else {
+                return "lower(npc_name) !~ '^[a-z]'";
+            }
+        }
+        $kanaGroups = getKanaGroups();
+        if (isset($kanaGroups[$letter])) {
+            $chars = preg_split('//u', $kanaGroups[$letter], -1, PREG_SPLIT_NO_EMPTY);
+            $conditions = [];
+            foreach ($chars as $c) {
+                $cEsc = $GLOBALS['db']->escape($c);
+                $conditions[] = "npc_name like '".$cEsc."%'";
+            }
+            return "(" . implode(' or ', $conditions) . ")";
+        }
+        // Plain letter (A-Z)
+        $letterEsc = $GLOBALS['db']->escape(strtolower($letter));
+        return "lower(npc_name) like '".$letterEsc."%'";
+    }
+}
 // New: checkbox filters
 $favOnly = (isset($_GET['fav']) && $_GET['fav'] === '1');
 $dynOnly = (isset($_GET['dyn']) && $_GET['dyn'] === '1');
@@ -1029,8 +1092,7 @@ if ($q !== ''){
     $where .= " and (npc_name ilike '".$qEsc."' or coalesce(race,'') ilike '".$qEsc."' or coalesce(voiceid,'') ilike '".$qEsc."' or coalesce(refid,'') ilike '".$qEsc."' or coalesce(tags,'') ilike '".$qEsc."')";
 }
 if ($nameLetterFilter !== '') {
-    $letterEsc = $GLOBALS['db']->escape(strtolower($nameLetterFilter));
-    $where .= " and lower(npc_name) like '".$letterEsc."%'";
+    $where .= " and " . buildKanaLetterCondition($nameLetterFilter);
 }
 if ($profileIdFilter !== ''){
     $where .= " and profile_id = ".intval($profileIdFilter);
@@ -1075,17 +1137,32 @@ $editItem = null;
 if (!function_exists('renderNpcLetterFilter')) {
     function renderNpcLetterFilter($selectedLetter = '')
     {
-        $selectedLetter = strtoupper(trim((string)$selectedLetter));
-        if (!preg_match('/^[A-Z]$/', $selectedLetter)) {
+        $selectedLetter = trim((string)$selectedLetter);
+        if ($selectedLetter !== 'OTHER' && !preg_match('/^[A-Zア-ヲ]$/u', $selectedLetter)) {
             $selectedLetter = '';
         }
+
+        // Auto-detect mode: count NPC names starting with Japanese characters
+        $useKana = isNpcKanaMode();
+
         echo '<div class="npc-letter-filter">';
         echo '<input type="hidden" id="npc_letter_filter" value="'.htmlspecialchars($selectedLetter, ENT_QUOTES).'" />';
         echo '<button type="button" class="npc-letter-btn'.($selectedLetter === '' ? ' active' : '').'" data-letter="">All</button>';
-        foreach (range('A', 'Z') as $char) {
-            $active = ($selectedLetter === $char) ? ' active' : '';
-            echo '<button type="button" class="npc-letter-btn'.$active.'" data-letter="'.htmlspecialchars($char, ENT_QUOTES).'">'.htmlspecialchars($char).'</button>';
+
+        if ($useKana) {
+            $kanaLabels = array_keys(getKanaGroups());
+            foreach ($kanaLabels as $char) {
+                $active = ($selectedLetter === $char) ? ' active' : '';
+                echo '<button type="button" class="npc-letter-btn'.$active.'" data-letter="'.htmlspecialchars($char, ENT_QUOTES).'">'.htmlspecialchars($char).'</button>';
+            }
+        } else {
+            foreach (range('A', 'Z') as $char) {
+                $active = ($selectedLetter === $char) ? ' active' : '';
+                echo '<button type="button" class="npc-letter-btn'.$active.'" data-letter="'.htmlspecialchars($char, ENT_QUOTES).'">'.htmlspecialchars($char).'</button>';
+            }
         }
+        $otherActive = ($selectedLetter === 'OTHER') ? ' active' : '';
+        echo '<button type="button" class="npc-letter-btn'.$otherActive.'" data-letter="OTHER">'.($useKana ? '他' : '#').'</button>';
         echo '</div>';
     }
 }

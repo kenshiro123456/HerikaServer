@@ -550,6 +550,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // 1. Update the edit modal form action to include the current letter:
 $currentLetter = isset($_GET['letter']) ? htmlspecialchars($_GET['letter']) : '';
 $formAction = $currentLetter ? "?letter={$currentLetter}#table" : "?#table";
+
+// Kana mode detection for bio templates
+if (!function_exists('isBioKanaMode')) {
+    function isBioKanaMode() {
+        static $result = null;
+        if ($result !== null) return $result;
+        try {
+            $row = $GLOBALS['db']->fetchOne("SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE npc_name ~ '^[\\u3040-\\u309F\\u30A0-\\u30FF]') AS ja FROM combined_bio_templates");
+            $result = (intval($row['total'] ?? 0) > 0 && intval($row['ja'] ?? 0) > 0);
+        } catch (Exception $e) {
+            $result = false;
+        }
+        return $result;
+    }
+}
+
+if (!function_exists('getBioKanaGroups')) {
+    function getBioKanaGroups() {
+        return [
+            'ア' => 'あいうえおアイウエオ',
+            'カ' => 'かきくけこがぎぐげごカキクケコガギグゲゴ',
+            'サ' => 'さしすせそざじずぜぞサシスセソザジズゼゾ',
+            'タ' => 'たちつてとだぢづでどタチツテトダヂヅデド',
+            'ナ' => 'なにぬねのナニヌネノ',
+            'ハ' => 'はひふへほばびぶべぼぱぴぷぺぽハヒフヘホバビブベボパピプペポ',
+            'マ' => 'まみむめもマミムメモ',
+            'ヤ' => 'やゆよヤユヨ',
+            'ラ' => 'らりるれろラリルレロ',
+            'ワ' => 'わをんワヲン',
+        ];
+    }
+}
 ?>
 
 <link rel="stylesheet" href="<?php echo $webRoot; ?>/ui/css/main.css">
@@ -987,7 +1019,38 @@ $formAction = $currentLetter ? "?letter={$currentLetter}#table" : "?#table";
     $searchTerm = isset($_GET['search']) ? strtolower(trim($_GET['search'])) : '';
 
     // Build query based on filters
-    if (!empty($letter) && ctype_alpha($letter) && strlen($letter) === 1) {
+    $bioKanaMode = isBioKanaMode();
+    $kanaGroups = getBioKanaGroups();
+    $isKanaFilter = isset($kanaGroups[$letter]);
+
+    if ($isKanaFilter) {
+        // Kana group filter: build OR conditions for all chars in the group
+        $chars = preg_split('//u', $kanaGroups[$letter], -1, PREG_SPLIT_NO_EMPTY);
+        $likeClauses = [];
+        foreach ($chars as $c) {
+            $likeClauses[] = "npc_name LIKE '" . pg_escape_string($conn, $c) . "%'";
+        }
+        $kanaWhere = "(" . implode(' OR ', $likeClauses) . ")";
+
+        if (!empty($searchTerm)) {
+            $query_combined = "
+                SELECT *
+                FROM {$schema}.combined_bio_templates
+                WHERE {$kanaWhere}
+                AND LOWER(npc_name) LIKE LOWER($1)
+                ORDER BY npc_name ASC
+            ";
+            $params_combined = ['%' . $searchTerm . '%'];
+        } else {
+            $query_combined = "
+                SELECT *
+                FROM {$schema}.combined_bio_templates
+                WHERE {$kanaWhere}
+                ORDER BY npc_name ASC
+            ";
+            $params_combined = [];
+        }
+    } elseif (!empty($letter) && ctype_alpha($letter) && strlen($letter) === 1) {
         if (!empty($searchTerm)) {
             // Filter by both letter and search term
             $query_combined = "
@@ -1052,8 +1115,14 @@ $formAction = $currentLetter ? "?letter={$currentLetter}#table" : "?#table";
     // Alphabetic filter
     echo '<div class="filter-buttons">';
     echo '<a href="?#table" class="alphabet-button">All</a>';
-    foreach (range('A', 'Z') as $char) {
-        echo '<a href="?letter=' . $char . '#table" class="alphabet-button">' . $char . '</a>';
+    if (isBioKanaMode()) {
+        foreach (array_keys(getBioKanaGroups()) as $kana) {
+            echo '<a href="?letter=' . urlencode($kana) . '#table" class="alphabet-button">' . htmlspecialchars($kana) . '</a>';
+        }
+    } else {
+        foreach (range('A', 'Z') as $char) {
+            echo '<a href="?letter=' . $char . '#table" class="alphabet-button">' . $char . '</a>';
+        }
     }
     echo '</div>';
 
